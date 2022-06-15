@@ -1,0 +1,153 @@
+#include <iterator>
+#include <string>
+#include <regex>
+#include <tuple>
+#include <vector>
+
+#include "import_sorter.h"
+
+namespace isort {
+    using namespace std::string_literals;
+
+    bool is_import(
+            const std::string& line,
+            const std::string& match_delimiter_begin = "<"s,
+            const std::string& match_delimiter_end = ">"s) {
+        auto regex_str = "^\\s*#include[^("s + match_delimiter_begin + ")]*"s
+            + match_delimiter_begin
+            + "[\\w\\d\\s/]*"s
+            + match_delimiter_end
+            + ".*"s;
+        auto import_regex = std::regex(regex_str);
+        return std::regex_match(line, import_regex);
+    }
+
+    bool is_third_party_import(const std::string& line) {
+        return is_import(line, "<"s, "\\.h>"s);
+    }
+
+    bool is_builtin_import(const std::string& line) {
+        return is_import(line, "<"s, ">"s) && !is_third_party_import(line);
+    }
+
+    bool is_local_import(const std::string& line) {
+        return is_import(line, "\""s, "\\.h\""s);
+    }
+
+    bool is_any_import(const std::string& line) {
+        return is_builtin_import(line) || is_third_party_import(line) || is_local_import(line);
+    }
+
+    bool is_empty_line(const std::string& line) {
+        if (line.size() == 0)
+            return true;
+        auto regex = std::regex("^\\s*$");
+        return std::regex_match(line, regex);
+    }
+
+    bool is_import_section_line(const std::string& line) {
+        return is_any_import(line) || is_empty_line(line);
+    }
+
+    std::string get_header_name(const std::string& line) {
+        auto regex = std::regex("^\\s*#include[^(\"|<)]*[<|\"]([^(>|\")]*)[>|\"].*"s);
+        std::smatch match;
+        std::regex_match(line, match, regex);
+        return match[1].str();
+    }
+
+    std::vector<std::string> get_all_imports(
+            const std::vector<std::string>& lines,
+            bool (*matcher) (const std::string&)) {
+        auto imports = std::vector<std::string>();
+        auto it = std::find_if(std::begin(lines), std::end(lines), matcher);
+        while (it != std::end(lines)) {
+            imports.emplace_back(*it);
+            it = std::find_if(std::next(it), std::end(lines), matcher);
+        }
+        return imports;
+    }
+
+    std::vector<std::string> get_sorted_imports(
+            const std::vector<std::string>& lines,
+            bool (*matcher) (const std::string&)) {
+        auto imports = get_all_imports(lines, matcher);
+        std::sort(
+            std::begin(imports),
+            std::end(imports),
+            [] (const auto& left, const auto& right) {
+                return get_header_name(left).compare(get_header_name(right)) < 0;
+            });
+        return imports;
+    }
+
+    void append_import_lines(std::vector<std::string>& output, const std::vector<std::string>& to_add) {
+        if (to_add.size() > 0) {
+            if (output.size() > 0)
+                output.emplace_back(""s);
+            output.insert(std::end(output), std::begin(to_add), std::end(to_add));
+        }
+    }
+
+    std::vector<std::string> get_beginning_padding(const std::vector<std::string>& lines) {
+        auto it = std::find_if_not(std::begin(lines), std::end(lines), is_empty_line);
+        return {std::begin(lines), it};
+    }
+
+    std::vector<std::string> get_ending_padding(const std::vector<std::string>& lines) {
+        auto it = std::find_if_not(std::rbegin(lines), std::rend(lines), is_empty_line);
+        auto distance = static_cast<long>(lines.size()) - std::distance(std::rbegin(lines), it);
+        auto begin = std::next(std::begin(lines), distance);
+        return {begin, std::end(lines)};
+    }
+
+    std::vector<std::string> sort_section(const std::vector<std::string>& lines) {
+        if (!std::all_of(std::begin(lines), std::end(lines), is_import_section_line) ||
+            std::all_of(std::begin(lines), std::end(lines), is_empty_line))
+            return lines;
+
+        auto pre_padding = get_beginning_padding(lines);
+        auto builtin_imports = get_sorted_imports(lines, is_builtin_import); 
+        auto third_party_imports = get_sorted_imports(lines, is_third_party_import);
+        auto local_imports = get_sorted_imports(lines, is_local_import);
+        auto post_padding = get_ending_padding(lines);
+
+        auto import_lines = std::vector<std::string>();
+        append_import_lines(import_lines, builtin_imports);
+        append_import_lines(import_lines, third_party_imports);
+        append_import_lines(import_lines, local_imports);
+
+        import_lines.insert(std::begin(import_lines), std::begin(pre_padding), std::end(pre_padding));
+        import_lines.insert(std::end(import_lines), std::begin(post_padding), std::end(post_padding));
+
+        return import_lines;
+    }
+
+    template <typename It>
+    std::tuple<It, It> get_section(const It& begin, const It& end) {
+        auto section_begin = std::find_if(begin, end, is_any_import);
+        if (section_begin == end)
+            return {end, end};
+        auto section_end = std::find_if_not(section_begin, end, is_import_section_line);
+        return {section_begin, section_end};
+    }
+
+    std::vector<std::string> ImportSorter::sort(const std::vector<std::string>& lines) const {
+        auto output = lines;
+        auto iterators = get_section(std::begin(output), std::end(output));
+        while (std::get<0>(iterators) != std::get<1>(iterators)) {
+            auto& [begin, end] = iterators;
+            auto new_section = sort_section({begin, end});
+            auto old_begin = std::vector<std::string>({std::begin(output), begin});
+            auto old_end = std::vector<std::string>({end, std::end(output)});
+            output = old_begin;
+            output.insert(std::end(output), std::begin(new_section), std::end(new_section));
+            output.insert(std::end(output), std::begin(old_end), std::end(old_end));
+            auto offset = static_cast<long>(old_begin.size() + new_section.size());
+            end = std::next(std::begin(output), offset);
+            iterators = get_section(end, std::end(output));
+        }
+
+        return output;
+    }
+}
