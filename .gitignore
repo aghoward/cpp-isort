@@ -1,0 +1,7 @@
+isort-cpp
+unittests
+*.o
+*.a
+*.so
+**/bin/
+**/obj/
