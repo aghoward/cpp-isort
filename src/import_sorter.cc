@@ -1,6 +1,7 @@
+#include <functional>
 #include <iterator>
-#include <string>
 #include <regex>
+#include <string>
 #include <tuple>
 #include <vector>
 
@@ -9,32 +10,19 @@
 namespace isort {
     using namespace std::string_literals;
 
-    bool is_import(
-            const std::string& line,
-            const std::string& match_delimiter_begin = "<"s,
-            const std::string& match_delimiter_end = ">"s) {
-        auto regex_str = "^\\s*#include[^("s + match_delimiter_begin + ")]*"s
-            + match_delimiter_begin
-            + "[\\w\\d\\s/]*"s
-            + match_delimiter_end
-            + ".*"s;
-        auto import_regex = std::regex(regex_str);
-        return std::regex_match(line, import_regex);
+    bool ImportSorter::is_third_party_import(const std::string& line) const {
+        return std::regex_match(line, _third_party_import_matcher);
     }
 
-    bool is_third_party_import(const std::string& line) {
-        return is_import(line, "<"s, "\\.h>"s);
+    bool ImportSorter::is_builtin_import(const std::string& line) const {
+        return std::regex_match(line, _builtin_import_matcher) && !is_third_party_import(line);
     }
 
-    bool is_builtin_import(const std::string& line) {
-        return is_import(line, "<"s, ">"s) && !is_third_party_import(line);
+    bool ImportSorter::is_local_import(const std::string& line) const {
+        return std::regex_match(line, _local_import_matcher);
     }
 
-    bool is_local_import(const std::string& line) {
-        return is_import(line, "\""s, "\\.h\""s);
-    }
-
-    bool is_any_import(const std::string& line) {
+    bool ImportSorter::is_any_import(const std::string& line) const {
         return is_builtin_import(line) || is_third_party_import(line) || is_local_import(line);
     }
 
@@ -45,7 +33,7 @@ namespace isort {
         return std::regex_match(line, regex);
     }
 
-    bool is_import_section_line(const std::string& line) {
+    bool ImportSorter::is_import_section_line(const std::string& line) const {
         return is_any_import(line) || is_empty_line(line);
     }
 
@@ -58,7 +46,7 @@ namespace isort {
 
     std::vector<std::string> get_all_imports(
             const std::vector<std::string>& lines,
-            bool (*matcher) (const std::string&)) {
+            const std::function<bool(const std::string&)>& matcher) {
         auto imports = std::vector<std::string>();
         auto it = std::find_if(std::begin(lines), std::end(lines), matcher);
         while (it != std::end(lines)) {
@@ -70,7 +58,7 @@ namespace isort {
 
     std::vector<std::string> get_sorted_imports(
             const std::vector<std::string>& lines,
-            bool (*matcher) (const std::string&)) {
+            const std::function<bool(const std::string&)>& matcher) {
         auto imports = get_all_imports(lines, matcher);
         std::sort(
             std::begin(imports),
@@ -101,15 +89,15 @@ namespace isort {
         return {begin, std::end(lines)};
     }
 
-    std::vector<std::string> sort_section(const std::vector<std::string>& lines) {
-        if (!std::all_of(std::begin(lines), std::end(lines), is_import_section_line) ||
+    std::vector<std::string> ImportSorter::sort_section(const std::vector<std::string>& lines) const {
+        if (!std::all_of(std::begin(lines), std::end(lines), [&] (const auto& l) { return is_import_section_line(l); }) ||
             std::all_of(std::begin(lines), std::end(lines), is_empty_line))
             return lines;
 
         auto pre_padding = get_beginning_padding(lines);
-        auto builtin_imports = get_sorted_imports(lines, is_builtin_import); 
-        auto third_party_imports = get_sorted_imports(lines, is_third_party_import);
-        auto local_imports = get_sorted_imports(lines, is_local_import);
+        auto builtin_imports = get_sorted_imports(lines, [&] (const auto& l) { return is_builtin_import(l); }); 
+        auto third_party_imports = get_sorted_imports(lines, [&] (const auto& l) { return is_third_party_import(l); });
+        auto local_imports = get_sorted_imports(lines, [&] (const auto& l) { return is_local_import(l); });
         auto post_padding = get_ending_padding(lines);
 
         auto import_lines = std::vector<std::string>();
@@ -121,15 +109,6 @@ namespace isort {
         import_lines.insert(std::end(import_lines), std::begin(post_padding), std::end(post_padding));
 
         return import_lines;
-    }
-
-    template <typename It>
-    std::tuple<It, It> get_section(const It& begin, const It& end) {
-        auto section_begin = std::find_if(begin, end, is_any_import);
-        if (section_begin == end)
-            return {end, end};
-        auto section_end = std::find_if_not(section_begin, end, is_import_section_line);
-        return {section_begin, section_end};
     }
 
     std::vector<std::string> ImportSorter::sort(const std::vector<std::string>& lines) const {
