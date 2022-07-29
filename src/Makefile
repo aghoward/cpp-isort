@@ -4,7 +4,7 @@ AR ?=ar
 OBJ_DIR=./obj
 LIB_DIR=./lib
 
-CXX_FLAGS +=--std=c++17 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -pedantic -Wconversion -Wsign-conversion -Wmisleading-indentation -I./
+CXX_FLAGS +=--std=c++17 -Wall -Wextra -Wshadow -Wnon-virtual-dtor -Wold-style-cast -Wcast-align -Wunused -Woverloaded-virtual -pedantic -Wconversion -Wsign-conversion -Wmisleading-indentation -I../
 AR_FLAGS +=rcs
 
 OBJECTS =${OBJ_DIR}/import_sorter.o

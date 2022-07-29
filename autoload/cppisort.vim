@@ -1,6 +1,6 @@
 func! cppisort#run()
     let winview=winsaveview()
-    let path = expand("%:p")
+    let path = expand("%")
     let path = fnameescape(path)
 
     let l:import_sort_executable = 'isort-cpp'

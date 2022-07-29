@@ -1,3 +1,6 @@
+#include "src/import_sorter.h"
+
+#include <filesystem>
 #include <functional>
 #include <iterator>
 #include <regex>
@@ -5,10 +8,20 @@
 #include <tuple>
 #include <vector>
 
-#include "import_sorter.h"
-
 namespace isort {
     using namespace std::string_literals;
+    namespace fs = std::filesystem;
+
+    std::string get_matching_header(const fs::path& filename) {
+        auto extension = filename.extension().string();
+        auto path = filename.string();
+        auto start_index = path.size() - extension.size();
+        return path.erase(start_index);
+    }
+
+    bool ImportSorter::is_this_header_import(const std::string& line) const {
+        return std::regex_match(line, _this_header_import_matcher);
+    }
 
     bool ImportSorter::is_third_party_import(const std::string& line) const {
         return std::regex_match(line, _third_party_import_matcher);
@@ -19,11 +32,14 @@ namespace isort {
     }
 
     bool ImportSorter::is_local_import(const std::string& line) const {
-        return std::regex_match(line, _local_import_matcher);
+        return std::regex_match(line, _local_import_matcher) && !is_this_header_import(line);
     }
 
     bool ImportSorter::is_any_import(const std::string& line) const {
-        return is_builtin_import(line) || is_third_party_import(line) || is_local_import(line);
+        return is_builtin_import(line) ||
+                is_third_party_import(line) ||
+                is_local_import(line) ||
+                is_this_header_import(line);
     }
 
     bool is_empty_line(const std::string& line) {
@@ -95,12 +111,14 @@ namespace isort {
             return lines;
 
         auto pre_padding = get_beginning_padding(lines);
+        auto header_import = get_sorted_imports(lines, [&] (const auto& l) { return is_this_header_import(l); });
         auto builtin_imports = get_sorted_imports(lines, [&] (const auto& l) { return is_builtin_import(l); }); 
         auto third_party_imports = get_sorted_imports(lines, [&] (const auto& l) { return is_third_party_import(l); });
         auto local_imports = get_sorted_imports(lines, [&] (const auto& l) { return is_local_import(l); });
         auto post_padding = get_ending_padding(lines);
 
         auto import_lines = std::vector<std::string>();
+        append_import_lines(import_lines, header_import);
         append_import_lines(import_lines, builtin_imports);
         append_import_lines(import_lines, third_party_imports);
         append_import_lines(import_lines, local_imports);

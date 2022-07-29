@@ -38,14 +38,14 @@ void write_lines(const fs::path& path, const std::vector<std::string>& lines) {
 }
 
 void process_file(const std::string& filename) {
-    auto sorter = isort::ImportSorter();
-
     auto path = fs::path(filename);
+    auto sorter = isort::ImportSorter(path);
+
     if (!fs::exists(path)) {
         std::cerr << "File does not exist: " << filename << std::endl;
         return;
     }
-    
+
     auto lines = read_all_lines(path);
     auto output_lines = sorter.sort(lines);
     write_lines(path, output_lines);

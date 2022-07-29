@@ -1,7 +1,7 @@
 #include <string>
 
-#include <gtest/gtest.h>
 #include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "import_sorter.h"
 
@@ -21,7 +21,7 @@ namespace isort::tests {
 
         public:
             ImportSorterTests()
-                : _subject()
+                : _subject("unmatched.cpp"s)
             {}
     };
 
@@ -82,6 +82,25 @@ namespace isort::tests {
         auto result = _subject.sort({"#include \"alpha.h\""s, "#include <beta>"s, "#include \"aimless.h\""s, "#include <algorithm>"s});
 
         assert_elements_equal(result, "#include <algorithm>"s, "#include <beta>"s, ""s, "#include \"aimless.h\"", "#include \"alpha.h\"");
+    }
+
+    TEST_F(ImportSorterTests, sort_given_mixed_imports_including_current_files_header_sorts_current_file_header_first) {
+        _subject = ImportSorter("aimless.cpp"s);
+
+        auto result = _subject.sort({
+            "#include \"alpha.h\""s,
+            "#include <beta>"s,
+            "#include \"aimless.h\""s,
+            "#include <algorithm>"s});
+
+        assert_elements_equal(
+                result,
+                "#include \"aimless.h\"",
+                ""s,
+                "#include <algorithm>"s,
+                "#include <beta>"s,
+                ""s,
+                "#include \"alpha.h\"");
     }
 
     TEST_F(ImportSorterTests, sort_given_lines_containing_whitespace_sorts_based_on_header_name) {

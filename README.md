@@ -11,9 +11,11 @@ cpp-isort <filename> [<filename>...]
 ## Sort Order
 
 cpp-isort follows the following rules:
-  * Builtin imports appear first. These are denoted by the syntax `#include
+  * Imports for the header file of the current implementation file appear first.
+    These are denoted by the syntax `#include "current/file/path.h"`
+  * Builtin imports appear second. These are denoted by the syntax `#include
     <name>`
-  * Third-party imports appear second. These are deonted by the syntax `#include
+  * Third-party imports appear third. These are deonted by the syntax `#include
     <name.h>`
   * Local imports appear last. These are denoted by the syntax `#include
     "name.h"`
