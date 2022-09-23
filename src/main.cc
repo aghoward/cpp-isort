@@ -38,8 +38,10 @@ void write_lines(const fs::path& path, const std::vector<std::string>& lines) {
 }
 
 void process_file(const std::string& filename) {
+    using namespace std::string_literals;
+
     auto path = fs::path(filename);
-    auto sorter = isort::ImportSorter(path);
+    auto sorter = isort::ImportSorter(path, {"src/"s, "include/"s});
 
     if (!fs::exists(path)) {
         std::cerr << "File does not exist: " << filename << std::endl;

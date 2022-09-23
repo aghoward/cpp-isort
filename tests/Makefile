@@ -12,7 +12,7 @@ LIBS =${PROD_LIB_DIR}/libisort.a
 EXE =unittests
 
 ${EXE}: ${OBJECTS} ${LIBS}
-	$(GCC) ${CXX_FLAGS} -o $@ $< ${LIBS} ${LD_FLAGS}
+	$(GCC) ${CXX_FLAGS} -o $@ $< ${LIBS} ${LD_FLAGS} 
 
 clean:
 	rm -Rf ${OBJ_DIR} ${EXE}

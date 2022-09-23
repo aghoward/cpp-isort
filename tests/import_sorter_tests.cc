@@ -95,12 +95,31 @@ namespace isort::tests {
 
         assert_elements_equal(
                 result,
-                "#include \"aimless.h\"",
+                "#include \"aimless.h\""s,
                 ""s,
                 "#include <algorithm>"s,
                 "#include <beta>"s,
                 ""s,
-                "#include \"alpha.h\"");
+                "#include \"alpha.h\""s);
+    }
+
+    TEST_F(ImportSorterTests, sort_given_mixed_imports_including_current_files_header_with_ignored_starting_directory_sorts_current_file_header_first) {
+        _subject = ImportSorter("src/aimless.cpp"s, {"src/"s});
+
+        auto result = _subject.sort({
+            "#include \"alpha.h\""s,
+            "#include <beta>"s,
+            "#include \"aimless.h\""s,
+            "#include <algorithm>"s});
+
+        assert_elements_equal(
+                result,
+                "#include \"aimless.h\""s,
+                ""s,
+                "#include <algorithm>"s,
+                "#include <beta>"s,
+                ""s,
+                "#include \"alpha.h\""s);
     }
 
     TEST_F(ImportSorterTests, sort_given_lines_containing_whitespace_sorts_based_on_header_name) {

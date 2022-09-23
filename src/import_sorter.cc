@@ -1,4 +1,4 @@
-#include "src/import_sorter.h"
+#include "import_sorter.h"
 
 #include <filesystem>
 #include <functional>
@@ -17,6 +17,19 @@ namespace isort {
         auto path = filename.string();
         auto start_index = path.size() - extension.size();
         return path.erase(start_index);
+    }
+
+    std::regex build_this_header_import_matcher(
+            const fs::path& filename,
+            const std::vector<std::string>& ignored_paths) {
+        auto filename_string = filename.string();
+        auto ignored_path = std::find_if(
+                ignored_paths.begin(),
+                ignored_paths.end(),
+                [&] (const auto& p) { return filename_string.substr(0, p.size()) == p; });
+        if (ignored_path != ignored_paths.end())
+            filename_string = filename_string.substr(ignored_path->size(), filename_string.size());
+        return std::regex("^\\s*#include[^\"]*\""s + get_matching_header(filename_string) + "\\.h\".*"s);
     }
 
     bool ImportSorter::is_this_header_import(const std::string& line) const {

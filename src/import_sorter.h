@@ -11,6 +11,9 @@ namespace isort {
     namespace fs = std::filesystem;
 
     std::string get_matching_header(const fs::path& filename);
+    std::regex build_this_header_import_matcher(
+            const fs::path& filename,
+            const std::vector<std::string>& ignored_paths);
 
     class ImportSorter {
         private:
@@ -39,13 +42,15 @@ namespace isort {
             }
 
         public:
-            ImportSorter(const fs::path& filename)
+            ImportSorter(const fs::path& filename, const std::vector<std::string>& ignored_paths)
                 :
-                _this_header_import_matcher("^\\s*#include[^\"]*\""s + get_matching_header(filename) + "\\.h\".*"s),
+                _this_header_import_matcher(build_this_header_import_matcher(filename, ignored_paths)),
                 _builtin_import_matcher("^\\s*#include[^<]*<[\\w\\d\\s/]*>.*"s),
                 _third_party_import_matcher("^\\s*#include[^<]*<[\\w\\d\\s/]*\\.h>.*"s),
                 _local_import_matcher("^\\s*#include[^\"]*\"[\\w\\d\\s/]*\\.h\".*"s)
             {}
+
+            ImportSorter(const fs::path& filename) : ImportSorter(filename, {}) {}
 
             std::vector<std::string> sort(const std::vector<std::string>& lines) const;
     };
